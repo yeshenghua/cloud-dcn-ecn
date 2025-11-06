@@ -39,9 +39,14 @@ parser.add_argument("--module", dest="module_substr", default=os.environ.get("PL
                     help="Substring of module path to prioritize (e.g., 'leaf[0].ppp[2].queue')")
 parser.add_argument("--name", dest="name_substr", default=os.environ.get("PLOT_NAME"),
                     help="Optional name substring to prefer (e.g., 'queueBitLength')")
+parser.add_argument("--source_csv", dest="source_csv", help="Explicit vectors CSV to read (overrides auto detection)")
+parser.add_argument("--output", dest="out_png", help="Explicit output PNG path")
+parser.add_argument("--k", dest="k_value", type=float, help="Optional K value for horizontal reference line (interpreted in k_unit)")
+parser.add_argument("--k_unit", dest="k_unit", default="KB", choices=["B","KB","MB"], help="Unit of K value (default KB)")
+parser.add_argument("--y_unit", dest="y_unit", default="B", choices=["B","KB","MB"], help="Target Y axis unit for queue length (default bytes)")
 args = parser.parse_args(args=[] if hasattr(sys, 'ps1') else None)
 
-VEC_CSV = find_vectors_csv()
+VEC_CSV = args.source_csv or find_vectors_csv()
 if not VEC_CSV:
     sys.exit("ERROR: vectors CSV not found. Export with: opp_scavetool export -T v -o results/incast8_vectors.csv results/incast8/omnetpp.vec")
 print(f"[info] using vectors CSV: {VEC_CSV}")
@@ -171,19 +176,34 @@ if len(x) > MAX_POINTS:
     print(f"[info] downsampled to {len(x)} points (step={step})")
 
 # ---- Plot ----
-out_png = os.path.join(FIG_DIR, f"incast8_sanity_{picked_kind}.png")
+out_png = args.out_png or os.path.join(FIG_DIR, f"incast8_sanity_{picked_kind}.png")
 plt.figure(figsize=(8, 4.2))
 
 # 阶梯线更适合离散向量
 plt.step(x, y, where="post")
 
-# 智能设置 y 轴标签
+name_lower = cand["name"].lower()
 ylabel = "Counter / Value"
-if picked_kind == "queue":
-    ylabel = "Queue length (bits)" if "bit" in cand["name"].lower() else "Queue length (pkts)"
+if picked_kind == "queue" and ("length" in name_lower):
+    # Assume bit length first if 'bit' present; convert to bytes then to requested unit
+    scale = 1.0
+    if "bit" in name_lower:
+        scale = 1.0/8.0  # bits -> bytes
+    # convert bytes to target unit
+    if args.y_unit == "KB":
+        scale /= 1024.0
+    elif args.y_unit == "MB":
+        scale /= (1024.0*1024.0)
+    y = [v * scale for v in y]
+    ylabel = f"Queue length ({args.y_unit})"
 plt.xlabel("Time (s)")
 plt.ylabel(ylabel)
 plt.title(f"Incast=8 sanity — {picked_kind} vector\n{cand['module']} :: {cand['name']}")
+# K reference line (already in target unit if provided)
+if args.k_value is not None and picked_kind == "queue":
+    k_disp = args.k_value
+    plt.axhline(y=k_disp, color="red", linestyle="--", linewidth=1.0, label=f"K={k_disp}{args.k_unit}")
+    plt.legend(loc="best", frameon=False)
 plt.tight_layout()
 plt.savefig(out_png, dpi=240)  # 更清晰
 plt.close()

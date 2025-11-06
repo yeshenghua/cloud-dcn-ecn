@@ -5,10 +5,12 @@ import inet.node.inet.StandardHost;
 import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
 import ned.DatarateChannel;
 
-channel Eth10G extends DatarateChannel
+// Parametric channel (was Eth10G) now named EthChan with overridable datarate/delay.
+channel EthChan extends DatarateChannel
 {
-    delay = 2us;
-    datarate = 10Gbps;
+    parameters:
+        datarate @unit(bps) = default(10Gbps);
+        delay @unit(s) = default(2us);
 }
 
 network SmallLeafSpine
@@ -23,11 +25,11 @@ network SmallLeafSpine
     connections allowunconnected:
         // leaf <-> all spines（单层 for，里头直接写两条连接）
         for i=0..3 {
-            leaf[i].pppg++ <--> Eth10G <--> spine[0].pppg++;
-            leaf[i].pppg++ <--> Eth10G <--> spine[1].pppg++;
+            leaf[i].pppg++ <--> EthChan <--> spine[0].pppg++;
+            leaf[i].pppg++ <--> EthChan <--> spine[1].pppg++;
         }
         // hosts <-> 对应的 leaf（用 k/hostsPerLeaf 计算所属 leaf）
         for k=0..(4*hostsPerLeaf-1) {
-            host[k].pppg++ <--> Eth10G <--> leaf[int(k/hostsPerLeaf)].pppg++;
+            host[k].pppg++ <--> EthChan <--> leaf[int(k/hostsPerLeaf)].pppg++;
         }
 }

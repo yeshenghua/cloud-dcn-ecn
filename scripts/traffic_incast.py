@@ -4,9 +4,13 @@ from collections import defaultdict
 
 # 参数
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 8   # incast 发送端数量
-ROUNDS = 20                                        # burst 轮数
-GAP = 0.10                                         # 两个 burst 之间的间隔
-SEED = 1
+LOAD = float(sys.argv[2]) if len(sys.argv) > 2 else None  # 目标负载(0..1)，可选：用于缩放 GAP
+SEED = int(sys.argv[3]) if len(sys.argv) > 3 else 1
+
+# burst 轮数及间隔（可受 LOAD 缩放）
+ROUNDS = 20
+BASE_GAP = 0.10
+GAP = (1.0 - LOAD) * BASE_GAP + 0.02 if LOAD is not None else BASE_GAP
 random.seed(SEED)
 
 # 拓扑规模（与你的 NED 匹配：4 个 leaf、每 leaf 3 台主机）
