@@ -1,8 +1,8 @@
 # Cloud DCN ECN Simulation
 
-> Repository pointer: (replace this with your Git URL, e.g. `https://github.com/yourname/cloud-dcn-ecn`)
->
-> Status update checklist: ✅ Codebase pointer  ✅ README with setup & usage
+> Repository pointer: https://github.com/yeshenghua/cloud-dc://github.com/yeshenghua/cloud-dcndecnecn
+n>
+> Status update checklist: ✅ Codebase pointer ✅ README with setup & usage
 
 ## Overview
 This project evaluates Explicit Congestion Notification (ECN) behavior and queue thresholds in a small leaf-spine datacenter network using OMNeT++/INET. It provides:
