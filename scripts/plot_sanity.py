@@ -42,7 +42,8 @@ parser.add_argument("--name", dest="name_substr", default=os.environ.get("PLOT_N
 parser.add_argument("--source_csv", dest="source_csv", help="Explicit vectors CSV to read (overrides auto detection)")
 parser.add_argument("--output", dest="out_png", help="Explicit output PNG path")
 parser.add_argument("--k", dest="k_value", type=float, help="Optional K value for horizontal reference line (interpreted in k_unit)")
-parser.add_argument("--k_unit", dest="k_unit", default="KB", choices=["B","KB","MB"], help="Unit of K value (default KB)")
+parser.add_argument("--k_unit", dest="k_unit", default="KB", choices=["B","KB","MB","packets"], help="Unit of K value (default KB; 'packets' converts using MSS)")
+parser.add_argument("--mss", dest="mss_bytes", type=int, default=1460, help="Bytes per packet when --k_unit=packets (default 1460)")
 parser.add_argument("--y_unit", dest="y_unit", default="B", choices=["B","KB","MB"], help="Target Y axis unit for queue length (default bytes)")
 args = parser.parse_args(args=[] if hasattr(sys, 'ps1') else None)
 
@@ -179,32 +180,61 @@ if len(x) > MAX_POINTS:
 out_png = args.out_png or os.path.join(FIG_DIR, f"incast8_sanity_{picked_kind}.png")
 plt.figure(figsize=(8, 4.2))
 
-# 阶梯线更适合离散向量
-plt.step(x, y, where="post")
-
 name_lower = cand["name"].lower()
 ylabel = "Counter / Value"
-if picked_kind == "queue" and ("length" in name_lower):
-    # Assume bit length first if 'bit' present; convert to bytes then to requested unit
+
+# Compute y_scaled before plotting, and ensure non-negative
+y_scaled = list(y)
+if ("length" in name_lower):
+    # Treat any *length* vectors as sizes; if contains 'bit', convert to bytes first
     scale = 1.0
     if "bit" in name_lower:
         scale = 1.0/8.0  # bits -> bytes
-    # convert bytes to target unit
+    # bytes -> requested unit
     if args.y_unit == "KB":
         scale /= 1024.0
     elif args.y_unit == "MB":
         scale /= (1024.0*1024.0)
-    y = [v * scale for v in y]
-    ylabel = f"Queue length ({args.y_unit})"
+    y_scaled = [max(0.0, float(v) * scale) for v in y]
+    ylabel = f"Length ({args.y_unit})"
+
+# 阶梯线更适合离散向量
+plt.step(x, y_scaled, where="post")
+
 plt.xlabel("Time (s)")
 plt.ylabel(ylabel)
 plt.title(f"Incast=8 sanity — {picked_kind} vector\n{cand['module']} :: {cand['name']}")
-# K reference line (already in target unit if provided)
-if args.k_value is not None and picked_kind == "queue":
-    k_disp = args.k_value
-    plt.axhline(y=k_disp, color="red", linestyle="--", linewidth=1.0, label=f"K={k_disp}{args.k_unit}")
-    plt.legend(loc="best", frameon=False)
+
+# K reference line with optional packet-based conversion
+def k_to_target_unit(k):
+    if k is None:
+        return None
+    if args.k_unit == "packets":
+        # convert packets -> bytes
+        k_bytes = k * float(args.mss_bytes)
+    else:
+        # interpret provided K already as B/KB/MB per flag; normalize to bytes first
+        factor = 1.0
+        if args.k_unit == "KB":
+            factor = 1024.0
+        elif args.k_unit == "MB":
+            factor = 1024.0*1024.0
+        k_bytes = k * factor
+    # now convert bytes to current y_unit
+    if args.y_unit == "KB":
+        return k_bytes / 1024.0
+    if args.y_unit == "MB":
+        return k_bytes / (1024.0*1024.0)
+    return k_bytes  # B
+
+if args.k_value is not None:
+    k_disp = k_to_target_unit(args.k_value)
+    if k_disp is not None:
+        label_unit = ("pkts" if args.k_unit == "packets" else args.k_unit)
+        plt.axhline(y=k_disp, color="red", linestyle="--", linewidth=1.0, label=f"K={args.k_value}{label_unit}")
+        plt.legend(loc="best", frameon=False)
+
 plt.tight_layout()
-plt.savefig(out_png, dpi=240)  # 更清晰
+plt.savefig(out_png, dpi=240)
 plt.close()
 print(f"[ok] saved: {out_png}")
