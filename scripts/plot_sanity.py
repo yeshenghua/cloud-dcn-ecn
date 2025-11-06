@@ -7,6 +7,7 @@ Sanity plot from OMNeT++/INET vectors.
 """
 
 import os, re, sys, math, json, shlex, subprocess as sp
+import argparse
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,6 +33,13 @@ def find_vectors_csv():
         if sp.run(cmd, shell=True).returncode == 0 and os.path.exists(outcsv):
             return outcsv
     return None
+
+parser = argparse.ArgumentParser(description="Sanity plot for OMNeT++ vectors")
+parser.add_argument("--module", dest="module_substr", default=os.environ.get("PLOT_MODULE"),
+                    help="Substring of module path to prioritize (e.g., 'leaf[0].ppp[2].queue')")
+parser.add_argument("--name", dest="name_substr", default=os.environ.get("PLOT_NAME"),
+                    help="Optional name substring to prefer (e.g., 'queueBitLength')")
+args = parser.parse_args(args=[] if hasattr(sys, 'ps1') else None)
 
 VEC_CSV = find_vectors_csv()
 if not VEC_CSV:
@@ -127,7 +135,19 @@ def best_signal(frame, score_fn):
     return best or best_rec
 
 # 先挑“队列长度里波动最大的”
-cand = best_signal(filter_by_name(df, queue_name_pats), variation_score)
+target_frame = df
+if args.module_substr:
+    target_frame = target_frame[target_frame["module"].astype(str).str.contains(re.escape(args.module_substr), case=False, regex=True)]
+if args.name_substr:
+    target_frame = target_frame[target_frame["name"].astype(str).str.contains(re.escape(args.name_substr), case=False, regex=True)]
+
+cand = None
+if len(target_frame) > 0:
+    # pick within target module/name first
+    cand = best_signal(filter_by_name(target_frame, queue_name_pats), variation_score) or \
+           best_signal(target_frame, variation_score)
+if cand is None:
+    cand = best_signal(filter_by_name(df, queue_name_pats), variation_score)
 picked_kind = "queue"
 if cand is None or not cand["x"] or not cand["y"]:
     # 再挑“丢包/丢失里增长最大的”

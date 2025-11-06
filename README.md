@@ -55,13 +55,34 @@ From repo root (adjust OMNeT++ executable path if not on PATH):
 ```bash
 opp_run -n .:sim -f sim/omnetpp.ini -c sym
 opp_run -n .:sim -f sim/omnetpp.ini -c incast8
-opp_run -n .:sim -f sim/omnetpp.ini -c k10
+# Fixed-K ECN (Route 1: RedDropperQueue, no code) — see section below
+opp_run -n .:sim -f sim/omnetpp.ini -c incast8_k10
 opp_run -n .:sim -f sim/omnetpp.ini -c incast8_k30
+opp_run -n .:sim -f sim/omnetpp.ini -c incast8_k60
 ```
 Notes:
 - `-n .:sim` adds current and `sim/` directories to NED path (include INET if needed: `-n .:sim:/path/to/inet/src`)
 - Output goes to `results/<config>/` (e.g., `results/sym/omnetpp.vec`)
 - If `markEcn` / `ecnEnabled` parameters cause unknown parameter errors, comment them out in `sim/omnetpp.ini` (these vary across INET versions).
+
+## Fixed-K ECN without code (Route 1)
+
+Configs `k10|k30|k60` extend an `ecn` base that switches interface queues to `inet.queueing.queue.RedDropperQueue` and sets:
+- `minth = maxth = K` (packets) as the hard threshold
+- `wq = 0` (disable EWMA) and `maxp = 1` (100% action above threshold)
+- Try ECN marking if available: `markEcn = true`, `ecnMarking = true` (names vary across INET versions); otherwise RED will drop above K, which still gives a close Fixed-K behavior for pipeline testing.
+
+Run incast variants:
+```bash
+opp_run -n .:sim -f sim/omnetpp.ini -c incast8_k10
+opp_run -n .:sim -f sim/omnetpp.ini -c incast8_k30
+opp_run -n .:sim -f sim/omnetpp.ini -c incast8_k60
+```
+
+Tip: to focus the ToR→RX queue in plots, pass a module/name filter:
+```bash
+python scripts/plot_sanity.py --module 'leaf[0].ppp[2].queue' --name 'queueBitLength'
+```
 
 ## Exporting Vectors (If Needed)
 `plot_sanity.py` auto-detects or exports a `_vectors.csv` using `opp_scavetool` if missing.
