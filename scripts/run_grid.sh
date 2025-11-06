@@ -61,6 +61,11 @@ run_case() {
   local overrides=(
     "--**.scalar-recording=true"
     "--**.vector-recording=true"
+    "--**.host[0].app[*].statistic-recording=true"
+    "--**.host[0].app[*].rcvdBytes.vector-recording=true"
+    "--**.host[0].app[*].rcvdPk:vector(packetBytes).vector-recording=true"
+    "--**.host[0].app[*].endToEndDelay.vector-recording=true"
+    "--**.host[0].app[*].packetReceived.result-recording-modes=+vector"
     "--result-dir=results/$cfg_name"
   )
   if [[ "$scen" == "asym" ]]; then
