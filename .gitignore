@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.env/
+.ipynb_checkpoints/
+
+# OMNeT++ / INET outputs
+*.sca
+*.vec
+*.vci
+results/
+figs/
+sim/results/
+
+# Editors/IDE
+.vscode/
+.idea/
